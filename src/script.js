@@ -83,17 +83,27 @@ pauseBtn.addEventListener('click', ()=>{
 
 // Evento de clique no botão 'Finalizar & Gerar Relatório'
 finalizeBtn.addEventListener('click', async ()=>{
-  if(!running) {
-    statusEl.textContent = 'Gerando relatório...';
-    // Se a gravação já estiver parada, chama a função de finalização diretamente
-    processFinalReport();
-  } else {
-    // Se a gravação estiver em andamento, para e espera o evento 'onstop'
-    running = false;
-    if(recognition) recognition.stop();
-    if(mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-    statusEl.textContent = 'Finalizando gravação...';
+  if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+    statusEl.textContent = 'Gerando relatório localmente...';
+    await processFinalReport();
+    return;
   }
+
+  running = false;
+  if (recognition) recognition.stop();
+
+  // Cria uma promessa para esperar o evento 'onstop'
+  const finalReportPromise = new Promise(resolve => {
+    mediaRecorder.onstop = async () => {
+      await processFinalReport();
+      resolve();
+    };
+  });
+
+  mediaRecorder.stop();
+  statusEl.textContent = 'Finalizando gravação...';
+
+  await finalReportPromise;
 });
 
 // A lógica de finalização foi movida para esta função para ser chamada após a gravação parar
@@ -123,13 +133,6 @@ const processFinalReport = async () => {
   const finalReport = backendReport || generateLocalReport(transcript);
   showReport(finalReport, Boolean(backendReport));
 };
-
-// Adiciona um listener para o evento 'onstop' do MediaRecorder
-if (mediaRecorder) {
-  mediaRecorder.onstop = processFinalReport;
-}
-
-// O resto do código (generateLocalReport, showReport, etc.) permanece o mesmo
 
 function generateLocalReport(transcript){
   const name = (transcript.match(/nome[:\s]+([A-ZÀ-Ý][a-z]+(?:\s+[A-Z][a-z]+)*)/i)||[])[1]||'—';
