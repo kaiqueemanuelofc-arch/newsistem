@@ -1,5 +1,5 @@
 /* FreeFlow frontend
- Edit only the WEBHOOK_INGEST_URL and PUBLIC_REPORT_URL constants */
+   Edit only the WEBHOOK_INGEST_URL and PUBLIC_REPORT_URL constants */
 const WEBHOOK_INGEST_URL = "https://myworkflow.tk/webhook/ultra";
 const PUBLIC_REPORT_URL  = "https://myworkflow.tk/webhook/ultra-report";
 
@@ -19,43 +19,117 @@ let recognition=null, mediaRecorder=null, audioChunks=[], running=false;
 let sessionId = 'ff_'+Math.random().toString(36).slice(2,9);
 sessionEl.textContent = sessionId;
 
+// Função para inicializar a API de reconhecimento de fala
 function initRecognition(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(!SR) return null;
-  const r = new SR(); r.lang='pt-BR'; r.interimResults=true; r.continuous=true;
+  const r = new SR();
+  r.lang='pt-BR';
+  r.interimResults=true;
+  r.continuous=true;
+  // Concatena a transcrição em tempo real
   r.onresult = (e)=>{ let txt=''; for(let i=e.resultIndex;i<e.results.length;i++) txt+=e.results[i][0].transcript+' '; transcriptEl.value = (transcriptEl.value+' '+txt).trim(); };
+  // Reinicia a gravação se ela parar inesperadamente
   r.onend = ()=>{ if(running) r.start(); };
   return r;
 }
-async function initMedia(){ const s = await navigator.mediaDevices.getUserMedia({audio:true}); const mr = new MediaRecorder(s); mr.ondataavailable = e=>{ if(e.data && e.data.size) audioChunks.push(e.data); }; return mr; }
 
+// Função para inicializar o gravador de mídia
+async function initMedia(){
+  // Solicita permissão do usuário para usar o microfone
+  const s = await navigator.mediaDevices.getUserMedia({audio:true});
+  const mr = new MediaRecorder(s);
+  // Coleta os pedaços de áudio
+  mr.ondataavailable = e=>{ if(e.data && e.data.size) audioChunks.push(e.data); };
+  return mr;
+}
+
+// Evento de clique no botão 'Iniciar'
 startBtn.addEventListener('click', async ()=>{
   if(running) return;
+
+  // Reseta o estado
+  audioChunks = [];
+  transcriptEl.value = '';
+
+  try{
+    // Tenta iniciar a gravação do microfone
+    mediaRecorder = await initMedia();
+  } catch(e){
+    // Exibe uma mensagem de erro na interface se o microfone não for permitido
+    statusEl.textContent = 'Erro: Permissão de microfone negada.';
+    console.error('Microphone permission denied.', e);
+    return;
+  }
+
+  // Inicializa o reconhecimento de fala
   recognition = initRecognition();
-  try{ mediaRecorder = await initMedia(); } catch(e){ alert('Permita microfone'); return; }
+
+  // Inicia a gravação e a transcrição
   if(recognition) recognition.start();
-  audioChunks=[]; mediaRecorder.start(1000); running=true; statusEl.textContent='Gravando e transcrevendo...';
+  mediaRecorder.start(1000);
+  running = true;
+  statusEl.textContent = 'Gravando e transcrevendo...';
 });
 
-pauseBtn.addEventListener('click', ()=>{ if(!running) return; running=false; if(recognition) recognition.stop(); if(mediaRecorder && mediaRecorder.state!=='inactive') mediaRecorder.stop(); statusEl.textContent='Pausado'; });
+// Evento de clique no botão 'Pausar'
+pauseBtn.addEventListener('click', ()=>{
+  if(!running) return;
+  running=false;
+  if(recognition) recognition.stop();
+  if(mediaRecorder && mediaRecorder.state!=='inactive') mediaRecorder.stop();
+  statusEl.textContent='Pausado';
+});
 
+// Evento de clique no botão 'Finalizar & Gerar Relatório'
 finalizeBtn.addEventListener('click', async ()=>{
-  if(running){ running=false; if(recognition) recognition.stop(); if(mediaRecorder && mediaRecorder.state!=='inactive') mediaRecorder.stop(); }
-  statusEl.textContent='Gerando relatório...';
+  if(!running) {
+    statusEl.textContent = 'Gerando relatório...';
+    // Se a gravação já estiver parada, chama a função de finalização diretamente
+    processFinalReport();
+  } else {
+    // Se a gravação estiver em andamento, para e espera o evento 'onstop'
+    running = false;
+    if(recognition) recognition.stop();
+    if(mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+    statusEl.textContent = 'Finalizando gravação...';
+  }
+});
+
+// A lógica de finalização foi movida para esta função para ser chamada após a gravação parar
+const processFinalReport = async () => {
   const transcript = transcriptEl.value.trim();
-  let audioBlob = null; if(audioChunks.length) audioBlob = new Blob(audioChunks,{type:'audio/webm'});
-  // try backend
-  let backendReport=null;
+  let audioBlob = null;
+  if(audioChunks.length) audioBlob = new Blob(audioChunks, {type:'audio/webm'});
+
+  let backendReport = null;
   try{
-    const form = new FormData(); form.append('sessionId', sessionId); form.append('transcript', transcript); if(audioBlob) form.append('audio', audioBlob, sessionId+'.webm');
-    const ctrl = new AbortController(); const t = setTimeout(()=>ctrl.abort(),10000);
-    const resp = await fetch(WEBHOOK_INGEST_URL,{method:'POST',body:form,signal:ctrl.signal});
+    const form = new FormData();
+    form.append('sessionId', sessionId);
+    form.append('transcript', transcript);
+    if(audioBlob) form.append('audio', audioBlob, sessionId+'.webm');
+
+    const ctrl = new AbortController();
+    const t = setTimeout(()=>ctrl.abort(), 10000);
+    const resp = await fetch(WEBHOOK_INGEST_URL, {method:'POST', body:form, signal:ctrl.signal});
     clearTimeout(t);
-    if(resp.ok){ const j = await resp.json(); backendReport = j.report || j; }
-  }catch(e){ console.warn('backend failed', e); }
+    if(resp.ok){
+      const j = await resp.json();
+      backendReport = j.report || j;
+    }
+  }catch(e){
+    console.warn('backend failed', e);
+  }
   const finalReport = backendReport || generateLocalReport(transcript);
   showReport(finalReport, Boolean(backendReport));
-});
+};
+
+// Adiciona um listener para o evento 'onstop' do MediaRecorder
+if (mediaRecorder) {
+  mediaRecorder.onstop = processFinalReport;
+}
+
+// O resto do código (generateLocalReport, showReport, etc.) permanece o mesmo
 
 function generateLocalReport(transcript){
   const name = (transcript.match(/nome[:\s]+([A-ZÀ-Ý][a-z]+(?:\s+[A-Z][a-z]+)*)/i)||[])[1]||'—';
