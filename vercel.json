@@ -20,12 +20,12 @@
   ],
   "routes": [
     {
-      "src": "/styles/style.css",
-      "dest": "/style/style.css"
+      "src": "/styles/(.*)",
+      "dest": "/style/$1"
     },
     {
-      "src": "/src/script.js",
-      "dest": "/src/script.js"
+      "src": "/src/(.*)",
+      "dest": "/src/$1"
     },
     {
       "src": "/(.*)",
