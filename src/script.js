@@ -21,8 +21,12 @@ sessionEl.textContent = sessionId;
 
 // Função para inicializar a API de reconhecimento de fala
 function initRecognition(){
+  console.log('TRACE: initRecognition() called.');
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if(!SR) return null;
+  if(!SR) {
+    console.error('ERROR: Speech Recognition not supported in this browser.');
+    return null;
+  }
   const r = new SR();
   r.lang='pt-BR';
   r.interimResults=true;
@@ -30,15 +34,18 @@ function initRecognition(){
   // Concatena a transcrição em tempo real
   r.onresult = (e)=>{ let txt=''; for(let i=e.resultIndex;i<e.results.length;i++) txt+=e.results[i][0].transcript+' '; transcriptEl.value = (transcriptEl.value+' '+txt).trim(); };
   // Reinicia a gravação se ela parar inesperadamente
-  r.onend = ()=>{ if(running) r.start(); };
+  r.onend = ()=>{ console.log('TRACE: SpeechRecognition ended. Restarting.'); if(running) r.start(); };
+  console.log('TRACE: SpeechRecognition initialized successfully.');
   return r;
 }
 
 // Função para inicializar o gravador de mídia e esperar pela permissão
 async function initMedia(){
+  console.log('TRACE: initMedia() called. Requesting microphone access...');
   try {
     // Solicita permissão do usuário para usar o microfone
     const s = await navigator.mediaDevices.getUserMedia({audio:true});
+    console.log('TRACE: Microphone access granted.');
     const mr = new MediaRecorder(s);
     // Coleta os pedaços de áudio
     mr.ondataavailable = e=>{ if(e.data && e.data.size) audioChunks.push(e.data); };
@@ -46,13 +53,14 @@ async function initMedia(){
   } catch(e) {
     // Se a permissão for negada, exibe uma mensagem de erro na interface e no console
     statusEl.textContent = 'Erro: Permissão de microfone negada.';
-    console.error('Microphone permission denied.', e);
+    console.error('ERROR: Microphone permission denied.', e);
     return null; // Retorna null para indicar falha
   }
 }
 
 // Evento de clique no botão 'Iniciar'
 startBtn.addEventListener('click', async ()=>{
+  console.log('TRACE: Start button clicked.');
   if(running) return;
 
   // Reseta o estado
@@ -62,17 +70,24 @@ startBtn.addEventListener('click', async ()=>{
   // Espera pela inicialização do gravador de mídia
   mediaRecorder = await initMedia();
   if (!mediaRecorder) {
+    console.log('TRACE: mediaRecorder is null. Exiting start function.');
     return; // Sai da função se a inicialização falhar
   }
 
   // Inicializa o reconhecimento de fala
   recognition = initRecognition();
+  if (!recognition) {
+    console.log('TRACE: recognition is null. Exiting start function.');
+    return;
+  }
 
   // Inicia a gravação e a transcrição
-  if(recognition) recognition.start();
+  console.log('TRACE: Starting mediaRecorder and recognition...');
+  recognition.start();
   mediaRecorder.start(1000);
   running = true;
   statusEl.textContent = 'Gravando e transcrevendo...';
+  console.log('TRACE: Recording started.');
 });
 
 // Evento de clique no botão 'Pausar'
