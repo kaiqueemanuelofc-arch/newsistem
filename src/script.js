@@ -34,14 +34,21 @@ function initRecognition(){
   return r;
 }
 
-// Função para inicializar o gravador de mídia
+// Função para inicializar o gravador de mídia e esperar pela permissão
 async function initMedia(){
-  // Solicita permissão do usuário para usar o microfone
-  const s = await navigator.mediaDevices.getUserMedia({audio:true});
-  const mr = new MediaRecorder(s);
-  // Coleta os pedaços de áudio
-  mr.ondataavailable = e=>{ if(e.data && e.data.size) audioChunks.push(e.data); };
-  return mr;
+  try {
+    // Solicita permissão do usuário para usar o microfone
+    const s = await navigator.mediaDevices.getUserMedia({audio:true});
+    const mr = new MediaRecorder(s);
+    // Coleta os pedaços de áudio
+    mr.ondataavailable = e=>{ if(e.data && e.data.size) audioChunks.push(e.data); };
+    return mr;
+  } catch(e) {
+    // Se a permissão for negada, exibe uma mensagem de erro na interface e no console
+    statusEl.textContent = 'Erro: Permissão de microfone negada.';
+    console.error('Microphone permission denied.', e);
+    return null; // Retorna null para indicar falha
+  }
 }
 
 // Evento de clique no botão 'Iniciar'
@@ -52,14 +59,10 @@ startBtn.addEventListener('click', async ()=>{
   audioChunks = [];
   transcriptEl.value = '';
 
-  try{
-    // Tenta iniciar a gravação do microfone
-    mediaRecorder = await initMedia();
-  } catch(e){
-    // Exibe uma mensagem de erro na interface se o microfone não for permitido
-    statusEl.textContent = 'Erro: Permissão de microfone negada.';
-    console.error('Microphone permission denied.', e);
-    return;
+  // Espera pela inicialização do gravador de mídia
+  mediaRecorder = await initMedia();
+  if (!mediaRecorder) {
+    return; // Sai da função se a inicialização falhar
   }
 
   // Inicializa o reconhecimento de fala
