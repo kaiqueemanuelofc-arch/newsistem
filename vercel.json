@@ -3,10 +3,30 @@
   "builds": [
     {
       "src": "public/**",
-      "use": "@vercel/static"
+      "use": "@vercel/static-build"
+    },
+    {
+      "src": "src/**",
+      "use": "@vercel/static-build"
+    },
+    {
+      "src": "style/**",
+      "use": "@vercel/static-build"
+    },
+    {
+      "src": "utils/**",
+      "use": "@vercel/static-build"
     }
   ],
   "routes": [
+    {
+      "src": "/styles/style.css",
+      "dest": "/style/style.css"
+    },
+    {
+      "src": "/src/script.js",
+      "dest": "/src/script.js"
+    },
     {
       "src": "/(.*)",
       "dest": "/public/index.html"
