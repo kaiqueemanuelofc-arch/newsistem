@@ -1,10 +1,11 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>FreeFlow · Ultrassom (Gratuito)</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="/styles/style.css">
+  <link rel="stylesheet" href="style.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-900">
@@ -37,11 +38,15 @@
       <aside class="space-y-4">
         <div class="p-5 bg-white rounded-2xl shadow">
           <h4>Configuração</h4>
-          <p class="text-sm">Edite <code>/src/script.js</code> para ajustar o webhook.</p>
+          <p class="text-sm">Os dados do paciente podem ser coletados via transcrição, como nome, idade, etc.</p>
+        </div>
+        <div class="p-5 bg-white rounded-2xl shadow">
+          <h4>Dados do Paciente</h4>
+          <p class="text-sm text-slate-500">Ainda não implementado. Use a transcrição para coletar dados.</p>
         </div>
       </aside>
     </main>
   </div>
-  <script type="module" src="/src/script.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
